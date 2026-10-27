@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>學生早餐統計表</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+      body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; }
+      .loader { border-top-color: #3498db; animation: spinner 1.5s linear infinite; }
+      @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body class="p-6 md:p-10">
+
+    <div class="max-w-xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden md:max-w-5xl">
+
+      <div class="bg-blue-600 p-6 text-center">
+        <h1 class="text-3xl font-bold text-white tracking-wide">
+          <i class="fas fa-utensils mr-2"></i>學生早餐統計表
+        </h1>
+        <p class="text-blue-100 text-base mt-2">快速紀錄費用與項目</p>
+        <p id="modeBadge" class="text-blue-200 text-xs mt-1"></p>
+      </div>
+
+      <div class="p-8">
+        <form id="breakfastForm" onsubmit="handleFormSubmit(this); return false;">
+
+          <div class="mb-6">
+            <label class="block text-gray-700 text-base font-bold mb-2" for="date">日期</label>
+            <input class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+                   id="date" name="date" type="date" required>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-gray-700 text-base font-bold mb-2" for="item">早餐品項</label>
+            <input class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+                   id="item" name="item" type="text" placeholder="例如：蛋餅、三明治..." list="itemOptions" required>
+            <datalist id="itemOptions">
+              <option value="原味蛋餅">
+              <option value="玉米蛋餅">
+              <option value="火腿吐司">
+              <option value="總匯三明治">
+              <option value="豆漿">
+              <option value="奶茶">
+            </datalist>
+          </div>
+
+          <div class="flex flex-wrap -mx-3 mb-6">
+            <div class="w-1/2 px-3">
+              <label class="block text-gray-700 text-base font-bold mb-2" for="price">單價 ($)</label>
+              <input class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+                     id="price" name="price" type="number" min="0" placeholder="0" oninput="calculateTotal()" required>
+            </div>
+            <div class="w-1/2 px-3">
+              <label class="block text-gray-700 text-base font-bold mb-2" for="quantity">份數</label>
+              <select class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg bg-white"
+                      id="quantity" name="quantity" onchange="calculateTotal()" required></select>
+            </div>
+          </div>
+
+          <div class="mb-8 p-4 bg-gray-50 rounded border border-gray-200">
+            <label class="block text-gray-500 text-sm font-bold mb-1 uppercase">預估總金額</label>
+            <div class="flex items-center">
+              <span class="text-3xl font-bold text-gray-800 mr-2">$</span>
+              <span id="displayTotal" class="text-3xl font-bold text-blue-600">0</span>
+            </div>
+          </div>
+
+          <div class="mb-8">
+            <label class="block text-gray-700 text-base font-bold mb-2" for="memo">備註 (選填)</label>
+            <input class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+                   id="memo" name="memo" type="text" placeholder="例如：去冰、不加醬">
+          </div>
+
+          <div class="flex items-center justify-between">
+            <button id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded text-lg focus:outline-none focus:shadow-outline transition duration-300 ease-in-out transform hover:-translate-y-1" type="submit">
+              <i class="fas fa-save mr-2"></i>儲存紀錄
+            </button>
+          </div>
+        </form>
+
+        <div id="loading" class="hidden mt-4 text-center">
+          <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-8 w-8 mb-2 mx-auto"></div>
+          <p class="text-gray-500 text-sm">資料處理中...</p>
+        </div>
+      </div>
+
+      <div class="bg-gray-50 border-t border-gray-200 p-6">
+        <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
+          <h3 class="text-gray-700 font-bold text-lg"><i class="fas fa-list-alt mr-2"></i>紀錄總覽</h3>
+          <div class="space-x-2 flex">
+            <button type="button" onclick="openMonthlyModal()" class="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-200 transition-colors shadow-sm flex items-center">
+              <i class="fas fa-chart-pie mr-2"></i>月份總覽
+            </button>
+            <button type="button" onclick="loadRecentRecords()" class="text-blue-500 text-sm hover:underline px-2 py-2 flex items-center">
+              <i class="fas fa-sync-alt mr-1"></i>重新整理
+            </button>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-gray-600 text-sm font-bold mb-1" for="monthSelector">
+            <i class="far fa-calendar-alt mr-1"></i>選擇月份
+          </label>
+          <select id="monthSelector" onchange="renderSelectedMonth()"
+                  class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 text-base bg-white">
+            <option value="">載入中...</option>
+          </select>
+        </div>
+
+        <div id="recentList">
+          <p class="text-gray-400 text-sm text-center">載入中...</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center text-gray-400 text-xs mt-6 mb-4">Hosted on GitHub Pages</div>
+
+    <!-- 月份總覽 Modal -->
+    <div id="monthlyModal" class="fixed inset-0 z-50 hidden overflow-y-auto" role="dialog" aria-modal="true">
+      <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-600 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="closeMonthlyModal()"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
+          <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div class="sm:flex sm:items-start">
+              <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 sm:mx-0 sm:h-10 sm:w-10">
+                <i class="fas fa-chart-bar text-indigo-600 text-lg"></i>
+              </div>
+              <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                <h3 class="text-xl leading-6 font-bold text-gray-900">歷史月份總花費</h3>
+                <div class="mt-4">
+                  <div id="monthlyModalContent" class="space-y-3 max-h-72 overflow-y-auto pr-2"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="bg-gray-50 px-4 py-3 sm:px-6 flex justify-end">
+            <button type="button" onclick="closeMonthlyModal()" class="w-full sm:w-auto inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-5 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50">
+              關閉視窗
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ==========================================================
+      // 設定：貼上 Google Apps Script「網頁應用程式」的部署網址 (結尾為 /exec)
+      // 留空 = 本機模式，資料只存在這台裝置的瀏覽器 (localStorage)
+      // ==========================================================
+      const API_URL = '';
+
+      // ==========================================================
+      // 轉接層：讓原本的 google.script.run 寫法在 GitHub Pages 上也能運作
+      // ==========================================================
+      const LS_KEY = 'breakfastRecords';
+
+      function pad2(n) { return String(n).padStart(2, '0'); }
+
+      const localApi = {
+        processForm: function (d) {
+          const list = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+          const price = Number(d.price) || 0, quantity = Number(d.quantity) || 1;
+          list.push({ date: d.date, item: d.item, price: price, quantity: quantity,
+                      total: price * quantity, memo: d.memo || '' });
+          localStorage.setItem(LS_KEY, JSON.stringify(list));
+          return { status: 'success', message: '資料已成功儲存！' };
+        },
+        getRecentRecords: function () {
+          const list = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+          return list.slice().sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+        },
+        getMonthlySummary: function () {
+          const map = {};
+          localApi.getRecentRecords().forEach(function (r) {
+            const m = String(r.date).split('-');
+            const key = m[0] + '年' + m[1] + '月';
+            map[key] = map[key] || { month: key, totalAmount: 0, recordCount: 0 };
+            map[key].totalAmount += Number(r.total) || 0;
+            map[key].recordCount += 1;
+          });
+          return Object.values(map).sort((a, b) => (a.month < b.month ? 1 : -1));
+        }
+      };
+
+      async function remoteApi(name, arg) {
+        let res;
+        if (name === 'processForm') {
+          // text/plain 屬於「簡單請求」，可避開 CORS 預檢，Apps Script 才收得到
+          res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: name, data: arg })
+          });
+        } else {
+          res = await fetch(API_URL + '?action=' + encodeURIComponent(name));
+        }
+        const json = await res.json();
+        if (json && json.error) throw new Error(json.error);
+        return json;
+      }
+
+      function formToObject(form) {
+        if (form instanceof HTMLFormElement) return Object.fromEntries(new FormData(form).entries());
+        return form;
+      }
+
+      function makeRunner() {
+        let onOk = null, onFail = null;
+        const runner = {
+          withSuccessHandler: function (fn) { onOk = fn; return runner; },
+          withFailureHandler: function (fn) { onFail = fn; return runner; }
+        };
+        ['processForm', 'getRecentRecords', 'getMonthlySummary'].forEach(function (name) {
+          runner[name] = function (arg) {
+            const payload = name === 'processForm' ? formToObject(arg) : undefined;
+            const job = API_URL
+              ? remoteApi(name, payload)
+              : new Promise(function (resolve) { setTimeout(function () { resolve(localApi[name](payload)); }, 200); });
+            job.then(function (r) { if (onOk) onOk(r); })
+               .catch(function (e) { if (onFail) onFail(e); else console.error(e); });
+          };
+        });
+        return runner;
+      }
+
+      window.google = { script: { get run() { return makeRunner(); } } };
+
+      // ==========================================================
+      // 以下為原本的頁面邏輯
+      // ==========================================================
+      var groupedRecordsCache = {};
+
+      function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+
+      window.onload = function () {
+        const q = document.getElementById('quantity');
+        for (let i = 1; i <= 16; i++) q.insertAdjacentHTML('beforeend', '<option value="' + i + '">' + i + '</option>');
+
+        const t = new Date();
+        document.getElementById('date').value = t.getFullYear() + '-' + pad2(t.getMonth() + 1) + '-' + pad2(t.getDate());
+        document.getElementById('modeBadge').textContent = API_URL ? '' : '本機模式：資料只儲存在此瀏覽器';
+        loadRecentRecords();
+      };
+
+      function calculateTotal() {
+        const price = document.getElementById('price').value || 0;
+        const qty = document.getElementById('quantity').value || 0;
+        document.getElementById('displayTotal').innerText = price * qty;
+      }
+
+      function handleFormSubmit(formObject) {
+        const btn = document.getElementById('submitBtn');
+        const loader = document.getElementById('loading');
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+        loader.classList.remove('hidden');
+
+        google.script.run
+          .withSuccessHandler(function (response) {
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            loader.classList.add('hidden');
+
+            const dateVal = document.getElementById('date').value;
+            formObject.reset();
+            document.getElementById('date').value = dateVal;
+            calculateTotal();
+
+            alert(response.message);
+            loadRecentRecords();
+          })
+          .withFailureHandler(function (error) {
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            loader.classList.add('hidden');
+            alert('發生錯誤: ' + error.message);
+          })
+          .processForm(formObject);
+      }
+
+      function loadRecentRecords() {
+        const listContainer = document.getElementById('recentList');
+        const selector = document.getElementById('monthSelector');
+        listContainer.innerHTML = '<p class="text-gray-400 text-sm text-center">載入中...</p>';
+        selector.innerHTML = '<option value="">載入中...</option>';
+
+        google.script.run
+          .withSuccessHandler(function (records) {
+            if (!records || records.length === 0) {
+              groupedRecordsCache = {};
+              selector.innerHTML = '<option value="">無資料</option>';
+              listContainer.innerHTML = '<p class="text-gray-400 text-sm text-center">目前尚無資料</p>';
+              return;
+            }
+
+            let groupedData = {};
+            records.forEach(function (rec) {
+              // 直接解析 YYYY-MM-DD 字串，避免時區造成日期位移
+              const m = String(rec.date).match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+              let monthKey = 'unclassified', monthLabel = '未分類', displayDate = rec.date;
+              if (m) {
+                monthKey = m[1] + '-' + pad2(m[2]);
+                monthLabel = m[1] + '年' + Number(m[2]) + '月';
+                displayDate = pad2(m[2]) + '/' + pad2(m[3]);
+              }
+              if (!groupedData[monthKey]) groupedData[monthKey] = { label: monthLabel, total: 0, items: [] };
+              groupedData[monthKey].items.push(Object.assign({}, rec, { displayDate: displayDate }));
+              groupedData[monthKey].total += Number(rec.total) || 0;
+            });
+
+            groupedRecordsCache = groupedData;
+            const sortedKeys = Object.keys(groupedData).sort().reverse();
+            selector.innerHTML = sortedKeys.map(function (k) {
+              return '<option value="' + k + '">' + esc(groupedData[k].label) + '</option>';
+            }).join('');
+            selector.value = sortedKeys[0];
+            renderSelectedMonth();
+          })
+          .withFailureHandler(function (error) {
+            selector.innerHTML = '<option value="">載入失敗</option>';
+            listContainer.innerHTML = '<p class="text-red-500 text-sm text-center">無法載入紀錄: ' + esc(error.message) + '</p>';
+          })
+          .getRecentRecords();
+      }
+
+      function renderSelectedMonth() {
+        const listContainer = document.getElementById('recentList');
+        const monthData = groupedRecordsCache[document.getElementById('monthSelector').value];
+        if (!monthData) {
+          listContainer.innerHTML = '<p class="text-gray-400 text-sm text-center">目前尚無資料</p>';
+          return;
+        }
+
+        let html = `
+          <div class="shadow-sm rounded-lg overflow-hidden">
+            <div class="flex justify-between items-center bg-blue-100 px-4 py-3 border border-blue-200 border-b-0">
+              <h4 class="font-bold text-blue-800 text-base"><i class="far fa-calendar-alt mr-2"></i>${esc(monthData.label)}</h4>
+              <span class="font-bold text-blue-800">總計: $${monthData.total}</span>
+            </div>
+            <div class="bg-white border border-blue-200 divide-y divide-gray-100">`;
+
+        monthData.items.forEach(function (item) {
+          const priceText = item.price ? `單價 $${esc(item.price)}` : '';
+          const qtyText = item.quantity ? ` × ${esc(item.quantity)} 份` : '';
+          const detailHtml = (priceText || qtyText) ? `<div class="text-gray-500 text-sm mt-1">${priceText}${qtyText}</div>` : '';
+          const memoHtml = item.memo
+            ? `<span class="text-gray-600 text-sm bg-yellow-50 px-2 py-1 rounded border border-yellow-200 inline-block truncate max-w-full" title="${esc(item.memo)}"><i class="fas fa-pencil-alt text-xs mr-1 text-yellow-600"></i>${esc(item.memo)}</span>`
+            : '';
+
+          html += `
+              <div class="p-4 hover:bg-gray-50 flex items-center transition duration-150 gap-2 md:gap-4 w-full">
+                <div class="w-1/2 md:w-5/12 min-w-0">
+                  <div class="flex items-center">
+                    <span class="inline-block bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded-md mr-2 font-medium whitespace-nowrap">${esc(item.displayDate)}</span>
+                    <span class="font-medium text-gray-800 text-base md:text-lg truncate">${esc(item.item)}</span>
+                  </div>
+                  ${detailHtml}
+                </div>
+                <div class="w-1/3 md:w-4/12 truncate text-right px-1 md:px-2">${memoHtml}</div>
+                <div class="w-1/6 md:w-3/12 font-bold text-gray-900 text-lg text-right whitespace-nowrap">$${esc(item.total)}</div>
+              </div>`;
+        });
+
+        html += '</div></div>';
+        listContainer.innerHTML = html;
+      }
+
+      function openMonthlyModal() {
+        const modal = document.getElementById('monthlyModal');
+        const content = document.getElementById('monthlyModalContent');
+        modal.classList.remove('hidden');
+        content.innerHTML = '<p class="text-gray-500 text-sm text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>統計資料載入中...</p>';
+
+        google.script.run
+          .withSuccessHandler(function (summaryData) {
+            if (!summaryData || summaryData.length === 0) {
+              content.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">目前尚無歷史紀錄</p>';
+              return;
+            }
+            let html = '', grandTotal = 0;
+            summaryData.forEach(function (data) {
+              html += `
+                <div class="bg-gray-50 hover:bg-indigo-50 transition-colors p-4 rounded-lg border border-gray-200 flex justify-between items-center">
+                  <div>
+                    <span class="font-bold text-gray-800 block text-lg">${esc(data.month)}</span>
+                    <span class="text-sm text-gray-500"><i class="fas fa-receipt mr-1"></i>共 ${esc(data.recordCount)} 筆</span>
+                  </div>
+                  <div class="text-2xl font-extrabold text-indigo-600">$${esc(data.totalAmount)}</div>
+                </div>`;
+              grandTotal += Number(data.totalAmount) || 0;
+            });
+            html += `
+              <div class="mt-4 pt-4 border-t-2 border-gray-200 flex justify-between items-center px-2">
+                <span class="font-bold text-gray-700 text-lg">全部歷史總計</span>
+                <span class="text-3xl font-black text-red-500">$${grandTotal}</span>
+              </div>`;
+            content.innerHTML = html;
+          })
+          .withFailureHandler(function (error) {
+            content.innerHTML = '<p class="text-red-500 text-sm text-center">無法載入統計資料: ' + esc(error.message) + '</p>';
+          })
+          .getMonthlySummary();
+      }
+
+      function closeMonthlyModal() {
+        document.getElementById('monthlyModal').classList.add('hidden');
+      }
+    </script>
+  </body>
+</html>
